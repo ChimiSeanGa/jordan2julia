@@ -1,18 +1,21 @@
 import React from 'react';
 import Drawing from './Drawing.jsx';
 import Immutable from 'immutable';
+import { isSimple } from '../Util/util.js';
 
 export default class DrawArea extends React.Component {
    constructor() {
       super();
       this.state = {
          isDrawing: false,
-         lines: Immutable.List(),
+         curve: Immutable.List(),
       };
 
       this.handleMouseMove = this.handleMouseMove.bind(this);
       this.handleMouseDown = this.handleMouseDown.bind(this);
       this.handleMouseUp = this.handleMouseUp.bind(this);
+
+      this.drawAreaRef = React.createRef();
    }
 
    handleMouseMove(mouseEvent) {
@@ -21,10 +24,16 @@ export default class DrawArea extends React.Component {
       }
 
       const point = this.relativeCoordinatesForEvent(mouseEvent);
+      const prevPoint = this.state.curve.get(this.state.curve.size - 1);
+
+      // Check if mouse did not move
+      if (point.get('x') === prevPoint.get('x') && point.get('y') === prevPoint.get('y')) {
+         return;
+      }
 
       this.setState(prevState => {
          return {
-            lines: prevState.lines.updateIn([prevState.lines.size - 1], line => line.push(point)),
+            curve: prevState.curve.push(point),
          };
       });
    }
@@ -38,18 +47,31 @@ export default class DrawArea extends React.Component {
 
       this.setState(prevState => {
          return {
-            lines: prevState.lines.push(Immutable.List([point])),
+            curve: Immutable.List([point]),
             isDrawing: true,
          }
       });
    }
 
-   handleMouseUp() {
-      this.setState({ isDrawing: false });
+   handleMouseUp(mouseEvent) {
+      this.setState(prevState => {
+         const initPoint = prevState.curve.get(0);
+         return {
+            curve: prevState.curve.push(initPoint),
+            isDrawing: false,
+         }
+      });
+
+      if (isSimple(this.state.curve)) {
+         console.log("Curve is simple");
+      }
+      else {
+         console.log("Curve is not simple");
+      }
    }
 
    relativeCoordinatesForEvent(mouseEvent) {
-      const boundingRect = this.refs.drawArea.getBoundingClientRect();
+      const boundingRect = this.drawAreaRef.current.getBoundingClientRect();
       return new Immutable.Map({
          x: mouseEvent.clientX - boundingRect.left,
          y: mouseEvent.clientY - boundingRect.top,
@@ -68,11 +90,11 @@ export default class DrawArea extends React.Component {
       return (
          <div
             className="drawArea"
-            ref="drawArea"
+            ref={this.drawAreaRef}
             onMouseDown={this.handleMouseDown}
             onMouseMove={this.handleMouseMove}
          >
-            <Drawing lines={this.state.lines} />
+            <Drawing curve={this.state.curve} />
          </div>
       );
    }
